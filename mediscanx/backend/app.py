@@ -100,11 +100,13 @@ def fetch_medicine_from_openfda(barcode: str):
         if not result:
             return None
         item = result[0]
+        # MRP means Maximum Retail Price. OpenFDA NDC data does not provide price fields.
+        maximum_retail_price = 0.0
         return {
             "barcode": barcode,
             "name": item.get("brand_name") or item.get("generic_name") or "Unknown",
             "manufacturer": item.get("labeler_name") or "Unknown",
-            "mrp": float(item.get("listing_expiration_date", 0) % 1000) if str(item.get("listing_expiration_date", "")).isdigit() else 0.0,
+            "mrp": maximum_retail_price,
             "category": item.get("dosage_form") or "General",
             "composition": item.get("active_ingredients", [{}])[0].get("name", "N/A") if item.get("active_ingredients") else "N/A",
             "availability": "Available",
