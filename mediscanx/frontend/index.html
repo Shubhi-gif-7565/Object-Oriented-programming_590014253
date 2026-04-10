@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediscanX</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f6f8fb; }
+    .card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    input, button { padding: 8px; margin: 4px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+    th { background: #f0f2f5; }
+  </style>
+</head>
+<body>
+  <h1>MediscanX Dashboard</h1>
+
+  <div class="card">
+    <h3>📷 Smart Scanner</h3>
+    <input id="barcode" placeholder="Enter barcode" />
+    <button onclick="scanMedicine()">Scan Now</button>
+    <pre id="scanResult"></pre>
+  </div>
+
+  <div class="card">
+    <h3>Inventory Actions</h3>
+    <input id="qty" type="number" value="1" min="1" />
+    <input id="costPrice" type="number" placeholder="Cost Price" />
+    <input id="sellPrice" type="number" placeholder="Selling Price (optional)" />
+    <button onclick="addStock()">Add Stock</button>
+    <button onclick="sellStock()">Sell</button>
+    <pre id="actionResult"></pre>
+  </div>
+
+  <div class="card">
+    <h3>🤖 AI Assistant</h3>
+    <input id="aiQuery" placeholder="e.g. suggest reorder" style="width: 65%;" />
+    <button onclick="askAI()">Ask</button>
+    <pre id="aiResult"></pre>
+  </div>
+
+  <div class="card">
+    <h3>🎤 Voice Command</h3>
+    <input id="voiceText" placeholder="e.g. show profit" style="width: 65%;" />
+    <button onclick="voiceCommand()">Send Voice Text</button>
+    <pre id="voiceResult"></pre>
+  </div>
+
+  <div class="card">
+    <h3>Dashboard Summary</h3>
+    <button onclick="loadDashboard()">Refresh Dashboard</button>
+    <pre id="dashboard"></pre>
+  </div>
+
+  <div class="card">
+    <h3>Inventory</h3>
+    <button onclick="loadInventory()">Refresh Inventory</button>
+    <table>
+      <thead><tr><th>Barcode</th><th>Name</th><th>Qty</th><th>CP</th><th>SP</th></tr></thead>
+      <tbody id="inventoryBody"></tbody>
+    </table>
+  </div>
+
+<script>
+const API = 'http://localhost:8000';
+
+async function scanMedicine() {
+  const barcode = document.getElementById('barcode').value.trim();
+  const res = await fetch(`${API}/api/scan?barcode=${encodeURIComponent(barcode)}`);
+  document.getElementById('scanResult').textContent = JSON.stringify(await res.json(), null, 2);
+}
+
+async function addStock() {
+  const body = {
+    barcode: document.getElementById('barcode').value.trim(),
+    quantity: Number(document.getElementById('qty').value),
+    cost_price: Number(document.getElementById('costPrice').value || 0)
+  };
+  const res = await fetch(`${API}/api/inventory/add`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  document.getElementById('actionResult').textContent = JSON.stringify(await res.json(), null, 2);
+}
+
+async function sellStock() {
+  const price = document.getElementById('sellPrice').value;
+  const body = {
+    barcode: document.getElementById('barcode').value.trim(),
+    quantity: Number(document.getElementById('qty').value),
+    selling_price: price ? Number(price) : null
+  };
+  const res = await fetch(`${API}/api/inventory/sell`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  document.getElementById('actionResult').textContent = JSON.stringify(await res.json(), null, 2);
+}
+
+async function askAI() {
+  const query = document.getElementById('aiQuery').value;
+  const res = await fetch(`${API}/api/ai/query`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({query})});
+  document.getElementById('aiResult').textContent = JSON.stringify(await res.json(), null, 2);
+}
+
+async function voiceCommand() {
+  const text = document.getElementById('voiceText').value;
+  const res = await fetch(`${API}/api/voice/command?text=${encodeURIComponent(text)}`);
+  document.getElementById('voiceResult').textContent = JSON.stringify(await res.json(), null, 2);
+}
+
+async function loadDashboard() {
+  const res = await fetch(`${API}/api/dashboard`);
+  document.getElementById('dashboard').textContent = JSON.stringify(await res.json(), null, 2);
+}
+
+async function loadInventory() {
+  const res = await fetch(`${API}/api/inventory`);
+  const data = await res.json();
+  const body = document.getElementById('inventoryBody');
+  body.innerHTML = '';
+  (data.inventory || []).forEach(item => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${item.barcode}</td><td>${item.name}</td><td>${item.quantity}</td><td>${item.cost_price}</td><td>${item.selling_price}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+loadDashboard();
+loadInventory();
+</script>
+</body>
+</html>
