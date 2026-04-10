@@ -25,7 +25,11 @@ public class InventoryManager {
             throw new IllegalArgumentException("Medicine not found");
         }
 
-        double cp = costByBarcode.getOrDefault(barcode, med.getMrp());
+        Double cpValue = costByBarcode.get(barcode);
+        if (cpValue == null) {
+            throw new IllegalStateException("Cost price missing for barcode: " + barcode);
+        }
+        double cp = cpValue;
         double sp = sellingPriceOverride != null ? sellingPriceOverride : med.getMrp();
         double profit = (sp - cp) * quantity;
 

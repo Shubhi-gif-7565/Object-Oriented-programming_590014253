@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 DB_PATH = "mediscanx.db"
-SYNC_INTERVAL_SECONDS = 3600
+SYNC_INTERVAL_SECONDS = 3600  # 1 hour
 
 FALLBACK_MEDICINES = {
     "8901234567890": {
@@ -100,7 +100,8 @@ def fetch_medicine_from_openfda(barcode: str):
         if not result:
             return None
         item = result[0]
-        # MRP means Maximum Retail Price. OpenFDA NDC data does not provide price fields.
+        # MRP means Maximum Retail Price. OpenFDA NDC data does not provide price fields,
+        # so price stays 0.0 here and can be overridden by local store pricing.
         mrp = 0.0
         return {
             "barcode": barcode,
@@ -173,7 +174,15 @@ def add_inventory(barcode: str, quantity: int, cost_price: float):
         raise ValueError("Quantity must be positive")
     get_medicine(barcode)
     conn = db_connection()
-    row = conn.execute("SELECT quantity, cost_price, selling_price FROM inventory WHERE barcode = ?", (barcode,)).fetchone()
+    row = conn.execute(
+        """
+        SELECT i.quantity, i.cost_price, i.selling_price, m.mrp AS medicine_mrp
+        FROM inventory i
+        JOIN medicines m ON m.barcode = i.barcode
+        WHERE i.barcode = ?
+        """,
+        (barcode,),
+    ).fetchone()
     now = utc_now_iso()
     if row:
         new_qty = row["quantity"] + quantity
@@ -207,6 +216,8 @@ def sell_inventory(barcode: str, quantity: int, selling_price: float | None):
         sp = float(selling_price)
     elif row["selling_price"] is not None:
         sp = float(row["selling_price"])
+    elif row["medicine_mrp"] is not None:
+        sp = float(row["medicine_mrp"])
     else:
         sp = cp
     profit = (sp - cp) * quantity
