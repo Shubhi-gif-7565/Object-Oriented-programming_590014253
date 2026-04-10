@@ -227,12 +227,12 @@ def dashboard_data() -> dict:
         "SELECT COALESCE(SUM(quantity), 0) AS qty, COALESCE(SUM(profit), 0) AS profit FROM sales WHERE sold_at LIKE ?",
         (f"{today}%",),
     ).fetchone()
-    expiring_like = conn.execute(
+    low_stock_items = conn.execute(
         "SELECT m.name, i.quantity FROM inventory i JOIN medicines m ON m.barcode = i.barcode WHERE i.quantity <= 5 ORDER BY i.quantity ASC"
     ).fetchall()
     conn.close()
 
-    alerts = [f"Low stock: {row['name']} ({row['quantity']} left)" for row in expiring_like]
+    alerts = [f"Low stock: {row['name']} ({row['quantity']} left)" for row in low_stock_items]
     return {
         "total_stock": total_stock,
         "today_sales": sales_today["qty"],
@@ -261,7 +261,7 @@ def ai_query(query: str) -> str:
             return "Inventory is empty."
         return "Top stock: " + ", ".join([f"{r['name']}={r['quantity']}" for r in rows])
 
-    if "reorder" in q or "expir" in q:
+    if "reorder" in q or "expiring" in q:
         rows = conn.execute(
             "SELECT m.name, i.quantity FROM inventory i JOIN medicines m ON m.barcode = i.barcode WHERE i.quantity <= 5 ORDER BY i.quantity ASC"
         ).fetchall()
