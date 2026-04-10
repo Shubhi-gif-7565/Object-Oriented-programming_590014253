@@ -174,15 +174,7 @@ def add_inventory(barcode: str, quantity: int, cost_price: float):
         raise ValueError("Quantity must be positive")
     get_medicine(barcode)
     conn = db_connection()
-    row = conn.execute(
-        """
-        SELECT i.quantity, i.cost_price, i.selling_price, m.mrp AS medicine_mrp
-        FROM inventory i
-        JOIN medicines m ON m.barcode = i.barcode
-        WHERE i.barcode = ?
-        """,
-        (barcode,),
-    ).fetchone()
+    row = conn.execute("SELECT quantity, cost_price, selling_price FROM inventory WHERE barcode = ?", (barcode,)).fetchone()
     now = utc_now_iso()
     if row:
         new_qty = row["quantity"] + quantity
@@ -203,7 +195,15 @@ def sell_inventory(barcode: str, quantity: int, selling_price: float | None):
     if quantity <= 0:
         raise ValueError("Quantity must be positive")
     conn = db_connection()
-    row = conn.execute("SELECT quantity, cost_price, selling_price FROM inventory WHERE barcode = ?", (barcode,)).fetchone()
+    row = conn.execute(
+        """
+        SELECT i.quantity, i.cost_price, i.selling_price, m.mrp AS medicine_mrp
+        FROM inventory i
+        JOIN medicines m ON m.barcode = i.barcode
+        WHERE i.barcode = ?
+        """,
+        (barcode,),
+    ).fetchone()
     if not row:
         conn.close()
         raise ValueError("Medicine not present in inventory")
