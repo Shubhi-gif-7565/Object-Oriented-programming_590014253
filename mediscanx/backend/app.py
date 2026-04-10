@@ -101,12 +101,12 @@ def fetch_medicine_from_openfda(barcode: str):
             return None
         item = result[0]
         # MRP means Maximum Retail Price. OpenFDA NDC data does not provide price fields.
-        maximum_retail_price = 0.0
+        mrp = 0.0
         return {
             "barcode": barcode,
             "name": item.get("brand_name") or item.get("generic_name") or "Unknown",
             "manufacturer": item.get("labeler_name") or "Unknown",
-            "mrp": maximum_retail_price,
+            "mrp": mrp,
             "category": item.get("dosage_form") or "General",
             "composition": item.get("active_ingredients", [{}])[0].get("name", "N/A") if item.get("active_ingredients") else "N/A",
             "availability": "Available",
@@ -203,7 +203,12 @@ def sell_inventory(barcode: str, quantity: int, selling_price: float | None):
         raise ValueError("Not enough stock")
 
     cp = float(row["cost_price"])
-    sp = float(selling_price if selling_price is not None else (row["selling_price"] if row["selling_price"] is not None else cp))
+    if selling_price is not None:
+        sp = float(selling_price)
+    elif row["selling_price"] is not None:
+        sp = float(row["selling_price"])
+    else:
+        sp = cp
     profit = (sp - cp) * quantity
     new_qty = row["quantity"] - quantity
     now = utc_now_iso()
@@ -224,7 +229,7 @@ def sell_inventory(barcode: str, quantity: int, selling_price: float | None):
 def dashboard_data() -> dict:
     conn = db_connection()
     total_stock = conn.execute("SELECT COALESCE(SUM(quantity), 0) AS total FROM inventory").fetchone()["total"]
-    today = datetime.now().date().isoformat()
+    today = datetime.now(timezone.utc).date().isoformat()
     sales_today = conn.execute(
         "SELECT COALESCE(SUM(quantity), 0) AS qty, COALESCE(SUM(profit), 0) AS profit FROM sales WHERE sold_at LIKE ?",
         (f"{today}%",),
